@@ -69,6 +69,7 @@ export default function Collection() {
             key={product.id}
             product={product}
             loading={index < 8 ? 'eager' : undefined}
+            sizes="(max-width: 699px) calc(100vw / 2), (max-width: 999px) calc(100vw / 0 - 64px), calc((100vw - 96px) / 3 - (24px / 3 * 2))"
           />
         )}
       </PaginatedResourceSection>

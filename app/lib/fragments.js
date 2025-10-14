@@ -232,3 +232,52 @@ export const FOOTER_QUERY = `#graphql
   }
   ${MENU_FRAGMENT}
 `;
+
+export const PRODUCT_ITEM_FRAGMENT = `#graphql
+  fragment MoneyProductItem on MoneyV2 {
+    amount
+    currencyCode
+  }
+
+  fragment ProductItem on Product {
+    id
+    handle
+    title
+    featuredImage {
+      id
+      url
+      altText
+      width
+      height
+    }
+
+    priceRange {
+      minVariantPrice {
+        ...MoneyProductItem
+      }
+      maxVariantPrice {
+        ...MoneyProductItem
+      }
+    }
+
+    # --- Category metafields ---
+    categoryName: metafield(namespace: "custom", key: "category_filter_name") {
+      value
+    }
+    categoryImage: metafield(namespace: "custom", key: "category_filter_image") {
+      reference {
+      __typename
+        ... on MediaImage {
+          image {
+            url
+            altText
+            width
+            height
+          }
+        }
+      }
+    }
+
+    tags
+  }
+`;

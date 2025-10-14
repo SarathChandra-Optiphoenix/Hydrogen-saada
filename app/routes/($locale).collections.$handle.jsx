@@ -1,136 +1,160 @@
 import {redirect, useLoaderData} from 'react-router';
-import {getPaginationVariables, Analytics} from '@shopify/hydrogen';
-import {PaginatedResourceSection} from '~/components/PaginatedResourceSection';
-import {redirectIfHandleIsLocalized} from '~/lib/redirect';
-import {ProductItem} from '~/components/ProductItem';
+import {Analytics} from '@shopify/hydrogen';
+import CollectionMain from '~/components/CollectionMain';
+import {PRODUCT_ITEM_FRAGMENT} from '../lib/fragments';
 
-/**
- * @type {Route.MetaFunction}
- */
-export const meta = ({data}) => {
-  return [{title: `Hydrogen | ${data?.collection.title ?? ''} Collection`}];
-};
+/* -------------------- meta -------------------- */
+export const meta = ({data}) => [
+  {title: `${data?.collection?.title ?? 'Collection'} | SAADAA`},
+];
 
-/**
- * @param {Route.LoaderArgs} args
- */
-export async function loader(args) {
-  // Start fetching non-critical data without blocking time to first byte
-  const deferredData = loadDeferredData(args);
-
-  // Await the critical data required to render initial state of the page
-  const criticalData = await loadCriticalData(args);
-
-  return {...deferredData, ...criticalData};
+/* -------------------- loader -------------------- */
+export async function loader({context, params, request}) {
+  const {handle} = params;
+  if (!handle) throw redirect('/collections');
+  
+  const {storefront} = context;
+  const url = new URL(request.url);
+  
+  // Extract filter and sort parameters from URL
+  const sortKey = url.searchParams.get('sort_by') || 'manual';
+  const reverse = getSortReverse(sortKey);
+  const sortKeyGraphQL = getSortKeyGraphQL(sortKey);
+  
+  // Build filters array from URL
+  const filters = buildFiltersFromURL(url.searchParams);
+  
+  // Fetch all products at once
+  const allProducts = await fetchAllProducts(storefront, handle, filters, sortKeyGraphQL, reverse);
+  
+  if (!allProducts.collection) {
+    throw new Response(`Collection ${handle} not found`, {status: 404});
+  }
+  
+  return {collection: allProducts.collection};
 }
 
-/**
- * Load data necessary for rendering content above the fold. This is the critical data
- * needed to render the page. If it's unavailable, the whole page should 400 or 500 error.
- * @param {Route.LoaderArgs}
- */
-async function loadCriticalData({context, params, request}) {
-  const {handle} = params;
-  const {storefront} = context;
-  const paginationVariables = getPaginationVariables(request, {
-    pageBy: 8,
-  });
+/* -------------------- Fetch All Products -------------------- */
+async function fetchAllProducts(storefront, handle, filters, sortKey, reverse) {
+  let allProductNodes = [];
+  let hasNextPage = true;
+  let endCursor = null;
+  let collectionData = null;
 
-  if (!handle) {
-    throw redirect('/collections');
-  }
-
-  const [{collection}] = await Promise.all([
-    storefront.query(COLLECTION_QUERY, {
-      variables: {handle, ...paginationVariables},
-      // Add other queries here, so that they are loaded in parallel
-    }),
-  ]);
-
-  if (!collection) {
-    throw new Response(`Collection ${handle} not found`, {
-      status: 404,
+  while (hasNextPage) {
+    const {collection} = await storefront.query(COLLECTION_QUERY, {
+      variables: {
+        handle,
+        first: 250, // Fetch 250 products per request
+        after: endCursor,
+        filters,
+        sortKey,
+        reverse,
+      },
     });
+
+    if (!collectionData) {
+      collectionData = collection;
+    }
+
+    allProductNodes = [...allProductNodes, ...collection.products.nodes];
+    hasNextPage = collection.products.pageInfo.hasNextPage;
+    endCursor = collection.products.pageInfo.endCursor;
   }
 
-  // The API handle might be localized, so redirect to the localized handle
-  redirectIfHandleIsLocalized(request, {handle, data: collection});
-
+  // Return collection with all products
   return {
-    collection,
+    collection: {
+      ...collectionData,
+      products: {
+        ...collectionData.products,
+        nodes: allProductNodes,
+        pageInfo: {
+          hasNextPage: false,
+          hasPreviousPage: false,
+        },
+      },
+    },
   };
 }
 
+/* -------------------- Helper Functions -------------------- */
+
 /**
- * Load data for rendering content below the fold. This data is deferred and will be
- * fetched after the initial page load. If it's unavailable, the page should still 200.
- * Make sure to not throw any errors here, as it will cause the page to 500.
- * @param {Route.LoaderArgs}
+ * Convert frontend sort value to GraphQL sortKey
  */
-function loadDeferredData({context}) {
-  return {};
+function getSortKeyGraphQL(sortBy) {
+  const sortMap = {
+    'manual': 'MANUAL',
+    'best-selling': 'BEST_SELLING',
+    'title-ascending': 'TITLE',
+    'title-descending': 'TITLE',
+    'price-ascending': 'PRICE',
+    'price-descending': 'PRICE',
+    'created-ascending': 'CREATED',
+    'created-descending': 'CREATED',
+  };
+  return sortMap[sortBy] || 'MANUAL';
 }
 
-export default function Collection() {
-  /** @type {LoaderReturnData} */
-  const {collection} = useLoaderData();
+/**
+ * Determine if sorting should be reversed
+ */
+function getSortReverse(sortBy) {
+  const reverseKeys = ['title-descending', 'price-descending', 'created-descending'];
+  return reverseKeys.includes(sortBy);
+}
 
+/**
+ * Build filters array from URL parameters
+ * @param {URLSearchParams} searchParams - The URLSearchParams object
+ */
+function buildFiltersFromURL(searchParams) {
+  const filters = [];
+  
+  // Handle encoded filter parameters (f[])
+  const filterParams = searchParams.getAll('f');
+  filterParams.forEach((encodedFilter) => {
+    try {
+      const decoded = JSON.parse(decodeURIComponent(encodedFilter));
+      filters.push(decoded);
+    } catch (e) {
+      console.error('Failed to parse filter:', e);
+    }
+  });
+  
+  // Handle in_stock filter
+  if (searchParams.get('in_stock') === '1') {
+    filters.push({
+      available: true,
+    });
+  }
+  
+  // Handle price range filter
+  const priceMin = searchParams.get('price_min');
+  const priceMax = searchParams.get('price_max');
+  if (priceMin || priceMax) {
+    const priceFilter = {price: {}};
+    if (priceMin) priceFilter.price.min = parseFloat(priceMin);
+    if (priceMax) priceFilter.price.max = parseFloat(priceMax);
+    filters.push(priceFilter);
+  }
+  
+  return filters.length > 0 ? filters : undefined;
+}
+
+export default function CollectionRoute() {
+  const {collection} = useLoaderData();
   return (
-    <div className="collection">
-      <h1>{collection.title}</h1>
-      <p className="collection-description">{collection.description}</p>
-      <PaginatedResourceSection
-        connection={collection.products}
-        resourcesClassName="products-grid"
-      >
-        {({node: product, index}) => (
-          <ProductItem
-            key={product.id}
-            product={product}
-            loading={index < 8 ? 'eager' : undefined}
-          />
-        )}
-      </PaginatedResourceSection>
+    <>
+      <CollectionMain collection={collection} />
       <Analytics.CollectionView
-        data={{
-          collection: {
-            id: collection.id,
-            handle: collection.handle,
-          },
-        }}
+        data={{collection: {id: collection.id, handle: collection.handle}}}
       />
-    </div>
+    </>
   );
 }
 
-const PRODUCT_ITEM_FRAGMENT = `#graphql
-  fragment MoneyProductItem on MoneyV2 {
-    amount
-    currencyCode
-  }
-  fragment ProductItem on Product {
-    id
-    handle
-    title
-    featuredImage {
-      id
-      altText
-      url
-      width
-      height
-    }
-    priceRange {
-      minVariantPrice {
-        ...MoneyProductItem
-      }
-      maxVariantPrice {
-        ...MoneyProductItem
-      }
-    }
-  }
-`;
-
-// NOTE: https://shopify.dev/docs/api/storefront/2022-04/objects/collection
 const COLLECTION_QUERY = `#graphql
   ${PRODUCT_ITEM_FRAGMENT}
   query Collection(
@@ -141,32 +165,54 @@ const COLLECTION_QUERY = `#graphql
     $last: Int
     $startCursor: String
     $endCursor: String
+    $filters: [ProductFilter!]
+    $sortKey: ProductCollectionSortKeys
+    $reverse: Boolean
   ) @inContext(country: $country, language: $language) {
     collection(handle: $handle) {
       id
       handle
       title
       description
+      metafields(identifiers: [
+        {namespace:"custom", key: "banner_link_text"}
+        {namespace: "custom", key: "collection_banner"},
+        {namespace: "custom", key: "collection_banner_mobile"},
+      ]) {
+        key
+        type
+        value
+        reference {
+          __typename
+          ... on MediaImage {
+            image { url width height altText }
+          }
+          ... on GenericFile {
+            url
+          }
+          ... on Video {
+            sources { url }
+          }
+        }
+      }
       products(
         first: $first,
         last: $last,
         before: $startCursor,
-        after: $endCursor
+        after: $endCursor,
+        filters: $filters,
+        sortKey: $sortKey,
+        reverse: $reverse
       ) {
-        nodes {
-          ...ProductItem
-        }
-        pageInfo {
-          hasPreviousPage
-          hasNextPage
-          endCursor
-          startCursor
+        nodes { ...ProductItem }
+        pageInfo { hasPreviousPage hasNextPage endCursor startCursor }
+        filters {
+          id
+          label
+          type
+          values { id label count input }
         }
       }
     }
   }
 `;
-
-/** @typedef {import('./+types/collections.$handle').Route} Route */
-/** @typedef {import('storefrontapi.generated').ProductItemFragment} ProductItemFragment */
-/** @typedef {import('@shopify/remix-oxygen').SerializeFrom<typeof loader>} LoaderReturnData */

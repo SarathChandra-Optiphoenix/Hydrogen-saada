@@ -1,243 +1,271 @@
+// app/routes/($locale).products.$handle.jsx
+import {useEffect} from 'react';
 import {useLoaderData} from 'react-router';
-import {
-  getSelectedProductOptions,
-  Analytics,
-  useOptimisticVariant,
-  getProductOptions,
-  getAdjacentAndFirstAvailableVariants,
-  useSelectedOptionInUrlParam,
-} from '@shopify/hydrogen';
-import {ProductPrice} from '~/components/ProductPrice';
-import {ProductImage} from '~/components/ProductImage';
-import {ProductForm} from '~/components/ProductForm';
-import {redirectIfHandleIsLocalized} from '~/lib/redirect';
+import {getSelectedProductOptions} from '@shopify/hydrogen';
+import {gaEvent, toGAItem} from '~/utils/ga';
+import {ProductMain} from '../components/ProductMain';
 
-/**
- * @type {Route.MetaFunction}
- */
-export const meta = ({data}) => {
-  return [
-    {title: `Hydrogen | ${data?.product.title ?? ''}`},
-    {
-      rel: 'canonical',
-      href: `/products/${data?.product.handle}`,
-    },
-  ];
-};
-
-/**
- * @param {Route.LoaderArgs} args
- */
-export async function loader(args) {
-  // Start fetching non-critical data without blocking time to first byte
-  const deferredData = loadDeferredData(args);
-
-  // Await the critical data required to render initial state of the page
-  const criticalData = await loadCriticalData(args);
-
-  return {...deferredData, ...criticalData};
-}
-
-/**
- * Load data necessary for rendering content above the fold. This is the critical data
- * needed to render the page. If it's unavailable, the whole page should 400 or 500 error.
- * @param {Route.LoaderArgs}
- */
-async function loadCriticalData({context, params, request}) {
+export async function loader({context, params, request}) {
   const {handle} = params;
   const {storefront} = context;
+  if (!handle) throw new Response('Missing handle', {status: 400});
 
-  if (!handle) {
-    throw new Error('Expected product handle to be defined');
-  }
+  const selectedOptions = getSelectedProductOptions(request);
+  const data = await storefront.query(PRODUCT_QUERY, {
+    variables: {handle, selectedOptions},
+  });
 
-  const [{product}] = await Promise.all([
-    storefront.query(PRODUCT_QUERY, {
-      variables: {handle, selectedOptions: getSelectedProductOptions(request)},
-    }),
-    // Add other queries here, so that they are loaded in parallel
-  ]);
+  if (!data?.product?.id) throw new Response('Product not found', {status: 404});
 
-  if (!product?.id) {
-    throw new Response(null, {status: 404});
-  }
-
-  // The API handle might be localized, so redirect to the localized handle
-  redirectIfHandleIsLocalized(request, {handle, data: product});
-
-  return {
-    product,
-  };
-}
-
-/**
- * Load data for rendering content below the fold. This data is deferred and will be
- * fetched after the initial page load. If it's unavailable, the page should still 200.
- * Make sure to not throw any errors here, as it will cause the page to 500.
- * @param {Route.LoaderArgs}
- */
-function loadDeferredData({context, params}) {
-  // Put any API calls that is not critical to be available on first page render
-  // For example: product reviews, product recommendations, social feeds.
-
-  return {};
+  return {product: data.product};
 }
 
 export default function Product() {
-  /** @type {LoaderReturnData} */
   const {product} = useLoaderData();
 
-  // Optimistically selects a variant with given available variant information
-  const selectedVariant = useOptimisticVariant(
-    product.selectedOrFirstAvailableVariant,
-    getAdjacentAndFirstAvailableVariants(product),
-  );
+  // ===== GA4: PDP view =====
+  useEffect(() => {
+    if (!product) return;
+    const v =
+      product.selectedOrFirstAvailableVariant ||
+      product.adjacentVariants?.[0] ||
+      null;
 
-  // Sets the search param to the selected variant without navigation
-  // only when no search params are set in the url
-  useSelectedOptionInUrlParam(selectedVariant.selectedOptions);
+    const currency =
+      v?.price?.currencyCode ||
+      product?.priceRange?.minVariantPrice?.currencyCode ||
+      'INR';
 
-  // Get the product options array
-  const productOptions = getProductOptions({
-    ...product,
-    selectedOrFirstAvailableVariant: selectedVariant,
-  });
+    const value =
+      Number(v?.price?.amount ??
+        product?.priceRange?.minVariantPrice?.amount ??
+        0);
 
-  const {title, descriptionHtml} = product;
+    gaEvent('view_item', {
+      currency,
+      value,
+      items: [toGAItem(product, v, 1)],
+    });
+  }, [product]);
 
-  return (
-    <div className="product">
-      <ProductImage image={selectedVariant?.image} />
-      <div className="product-main">
-        <h1>{title}</h1>
-        <ProductPrice
-          price={selectedVariant?.price}
-          compareAtPrice={selectedVariant?.compareAtPrice}
-        />
-        <br />
-        <ProductForm
-          productOptions={productOptions}
-          selectedVariant={selectedVariant}
-        />
-        <br />
-        <br />
-        <p>
-          <strong>Description</strong>
-        </p>
-        <br />
-        <div dangerouslySetInnerHTML={{__html: descriptionHtml}} />
-        <br />
-      </div>
-      <Analytics.ProductView
-        data={{
-          products: [
-            {
-              id: product.id,
-              title: product.title,
-              price: selectedVariant?.price.amount || '0',
-              vendor: product.vendor,
-              variantId: selectedVariant?.id || '',
-              variantTitle: selectedVariant?.title || '',
-              quantity: 1,
-            },
-          ],
-        }}
-      />
-    </div>
-  );
+  // Expose an add-to-cart tracker for ProductMain to call AFTER mutation success
+  function onAddToCartTracked(variant, quantity = 1) {
+    const item = toGAItem(product, variant, quantity);
+    gaEvent('add_to_cart', {
+      currency: variant?.price?.currencyCode || 'INR',
+      value: Number(variant?.price?.amount || 0) * quantity,
+      items: [item],
+    });
+  }
+
+  return <ProductMain product={product} onAddToCartTracked={onAddToCartTracked} />;
 }
 
-const PRODUCT_VARIANT_FRAGMENT = `#graphql
-  fragment ProductVariant on ProductVariant {
-    availableForSale
-    compareAtPrice {
-      amount
-      currencyCode
-    }
-    id
-    image {
-      __typename
-      id
-      url
-      altText
-      width
-      height
-    }
-    price {
-      amount
-      currencyCode
-    }
-    product {
-      title
-      handle
-    }
-    selectedOptions {
-      name
-      value
-    }
-    sku
-    title
-    unitPrice {
-      amount
-      currencyCode
-    }
-  }
-`;
-
-const PRODUCT_FRAGMENT = `#graphql
-  fragment Product on Product {
-    id
-    title
-    vendor
-    handle
-    descriptionHtml
-    description
-    encodedVariantExistence
-    encodedVariantAvailability
-    options {
-      name
-      optionValues {
-        name
-        firstSelectableVariant {
-          ...ProductVariant
-        }
-        swatch {
-          color
-          image {
-            previewImage {
-              url
-            }
-          }
-        }
-      }
-    }
-    selectedOrFirstAvailableVariant(selectedOptions: $selectedOptions, ignoreUnknownOptions: true, caseInsensitiveMatch: true) {
-      ...ProductVariant
-    }
-    adjacentVariants (selectedOptions: $selectedOptions) {
-      ...ProductVariant
-    }
-    seo {
-      description
-      title
-    }
-  }
-  ${PRODUCT_VARIANT_FRAGMENT}
-`;
-
 const PRODUCT_QUERY = `#graphql
-  query Product(
-    $country: CountryCode
-    $handle: String!
-    $language: LanguageCode
-    $selectedOptions: [SelectedOptionInput!]!
-  ) @inContext(country: $country, language: $language) {
-    product(handle: $handle) {
-      ...Product
-    }
-  }
-  ${PRODUCT_FRAGMENT}
+ query Product(
+ $country: CountryCode
+ $language: LanguageCode
+ $handle: String!
+ $selectedOptions: [SelectedOptionInput!]!
+ ) @inContext(country: $country, language: $language) {
+ product(handle: $handle) {
+ ...Product
+ collections(first: 2) {
+ nodes {
+ id
+ handle
+ title
+ metafields(identifiers: [
+ {namespace: "custom", key: "free_shipping_text"},
+ {namespace: "custom", key: "exchange_return_text"},
+ {namespace: "custom", key: "offer_image"}
+ ]) {
+ key
+ value
+ type
+ reference {
+ ... on MediaImage {
+ id
+ image {
+ id
+ url
+ width
+ height
+ altText
+ }
+ }
+ }
+ references(first: 10) {
+ nodes {
+ ... on MediaImage {
+ id
+ image {
+ id
+ url
+ width
+ height
+ altText
+ }
+ }
+ }
+ }
+ }
+ # Get all products from collection for color matching
+ products(first: 50) {
+ nodes {
+ id
+ handle
+ title
+ tags
+ featuredImage {
+ url
+ altText
+ width
+ height
+ }
+ priceRange {
+ minVariantPrice {
+ amount
+ currencyCode
+ }
+ }
+ }
+ }
+ }
+ }
+ metafields(identifiers: [
+ {namespace: "custom", key: "product_specification"},
+ {namespace: "custom", key: "style_with_product"},
+ ]) {
+ key
+ value
+ type
+ reference {
+ ... on Metaobject {
+ type
+ fields {
+ key
+ value
+ }
+ }
+ ... on Product {
+ id
+ handle
+ title
+ images(first: 1) {
+ nodes {
+ id
+ url
+ altText
+ width
+ height
+ }
+ }
+ }
+ }
+ references(first: 5) {
+ nodes {
+ ... on Product {
+ id
+ handle
+ title
+ images(first: 1) {
+ nodes {
+ id
+ url
+ width
+ height
+ altText
+ }
+ }
+ }
+ }
+ }
+ }
+ }
+ 
+ # Query all color metaobjects
+ metaobjects(type: "color", first: 50) {
+ nodes {
+ id
+ handle
+ type
+ fields {
+ key
+ value
+ reference {
+ ... on MediaImage {
+ image {
+ url
+ altText
+ width
+ height
+ }
+ }
+ }
+ }
+ }
+ }
+ }
+ 
+ fragment Product on Product {
+ id
+ title
+ handle
+ vendor
+ descriptionHtml
+ description
+ tags
+ encodedVariantExistence
+ encodedVariantAvailability
+ images(first: 10) {
+ nodes { id url altText width height }
+ }
+ options {
+ name
+ optionValues {
+ name
+ firstSelectableVariant {
+ ...ProductVariant
+ }
+ }
+ }
+ selectedOrFirstAvailableVariant(selectedOptions: $selectedOptions, ignoreUnknownOptions: true) {
+ ...ProductVariant
+ }
+ adjacentVariants(selectedOptions: $selectedOptions) {
+ ...ProductVariant
+ }
+ seo {
+ title
+ description
+ }
+ }
+ 
+ fragment ProductVariant on ProductVariant {
+ id
+ title
+ availableForSale
+ sku
+ image {
+ id
+ url
+ altText
+ width
+ height
+ }
+ price {
+ amount
+ currencyCode
+ }
+ compareAtPrice {
+ amount
+ currencyCode
+ }
+ selectedOptions {
+ name
+ value
+ }
+ product { handle }
+ }
 `;
-
-/** @typedef {import('./+types/products.$handle').Route} Route */
-/** @typedef {import('@shopify/remix-oxygen').SerializeFrom<typeof loader>} LoaderReturnData */
