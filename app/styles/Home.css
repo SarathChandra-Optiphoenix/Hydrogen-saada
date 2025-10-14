@@ -82,6 +82,7 @@
   margin: 0px;
   color: rgb(54, 54, 54);
   font-family: Helvetica, Arial, sans-serif;
+  white-space: nowrap;
 }
 
 /* thin white line under sticky area like live site */
@@ -335,6 +336,11 @@
   filter: drop-shadow(0 2px 6px rgba(195, 106, 78, 0.16));
 }
 
+@media (max-width: 968px) {
+  .custom-stats-section {
+   width: 100%;
+  }
+}
 @media (max-width: 768px) {
   .custom-stat-icon {
     width: 48px;
@@ -586,6 +592,7 @@
   text-transform: var(--heading-text-transform);
   overflow-wrap: anywhere;
   color: rgb(54, 54, 54);
+  text-align: center;
 }
 
 /* CTA wrapper to keep button centered */
@@ -884,9 +891,10 @@
   .rc-card {
     width: 240px;
     min-width: 240px;
+    height: 400px;
   }
   .rc-image-wrap {
-    height: 160px;
+    height: 180px;
   }
 }
 
@@ -1129,6 +1137,8 @@
   gap: 12px;
   margin-bottom: 20px;
   flex-wrap: wrap;
+  scroll-behavior: smooth;
+  scrollbar-width: none;
 }
 
 .cg-title {
@@ -1154,6 +1164,7 @@
   color: var(--muted);
   transition: all 160ms ease;
   box-shadow: none;
+  text-wrap: nowrap;
 }
 .cg-tab:hover {
   transform: translateY(-2px);
@@ -1165,6 +1176,13 @@
   color: var(--accent);
   transform: translateY(-3px) scale(1.02);
   font-weight: 600;
+}
+
+@media (max-width: 768px) {
+  .menu-item img {
+      height: 150px;
+      object-fit: cover;
+  }
 }
 
 /* ---------- grid ---------- */
@@ -1448,7 +1466,7 @@
 /* mobile single column fallback */
 @media (max-width: 420px) {
   .cg-grid {
-    grid-template-columns: 1fr;
+    grid-template-rows: 1fr;
   }
   .cg-viewall-btn {
     width: 100%;

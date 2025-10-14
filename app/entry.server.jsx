@@ -3,41 +3,57 @@ import {isbot} from 'isbot';
 import {renderToReadableStream} from 'react-dom/server';
 import {createContentSecurityPolicy} from '@shopify/hydrogen';
 
-/**
- * @param {Request} request
- * @param {number} responseStatusCode
- * @param {Headers} responseHeaders
- * @param {EntryContext} reactRouterContext
- * @param {HydrogenRouterContextProvider} context
- */
 export default async function handleRequest(
   request,
-  responseStatusCode,
+  statusCode,
   responseHeaders,
   reactRouterContext,
   context,
 ) {
-  const {nonce, header, NonceProvider} = createContentSecurityPolicy({
-    shop: {
-      checkoutDomain: context.env.PUBLIC_CHECKOUT_DOMAIN,
-      storeDomain: context.env.PUBLIC_STORE_DOMAIN,
-    },
-  });
+  const isDev = new URL(request.url).hostname === 'localhost';
+
+  let nonce, header, NonceProvider = ({children}) => <>{children}</>;
+
+  if (!isDev) {
+    const csp = createContentSecurityPolicy({
+      shop: {
+        checkoutDomain: context.env.PUBLIC_CHECKOUT_DOMAIN,
+        storeDomain: context.env.PUBLIC_STORE_DOMAIN,
+      },
+      // add GA + Shopify script and GA collect endpoints (see §2)
+      connectSrc: [
+        'https://www.google-analytics.com',
+        'https://analytics.google.com',
+        'https://region1.google-analytics.com',
+        'https://cdn.shopify.com',
+      ],
+      scriptSrcElem: [
+        'https://www.googletagmanager.com',
+        'https://www.google-analytics.com',
+        'https://cdn.shopify.com',
+      ],
+      imgSrc: [
+        'data:',
+        'https://cdn.shopify.com',
+        'https://images.loox.io',
+        'https://d1pv5xkwefoylp.cloudfront.net',
+      ],
+    });
+    nonce = csp.nonce;
+    header = csp.header;
+    NonceProvider = csp.NonceProvider;
+  }
 
   const body = await renderToReadableStream(
     <NonceProvider>
-      <ServerRouter
-        context={reactRouterContext}
-        url={request.url}
-        nonce={nonce}
-      />
+      <ServerRouter context={reactRouterContext} url={request.url} nonce={nonce} />
     </NonceProvider>,
     {
       nonce,
       signal: request.signal,
-      onError(error) {
-        console.error(error);
-        responseStatusCode = 500;
+      onError(err) {
+        console.error(err);
+        statusCode = 500;
       },
     },
   );
@@ -47,13 +63,7 @@ export default async function handleRequest(
   }
 
   responseHeaders.set('Content-Type', 'text/html');
-  responseHeaders.set('Content-Security-Policy', header);
+  if (header) responseHeaders.set('Content-Security-Policy', header); // prod only
 
-  return new Response(body, {
-    headers: responseHeaders,
-    status: responseStatusCode,
-  });
+  return new Response(body, {headers: responseHeaders, status: statusCode});
 }
-
-/** @typedef {import('@shopify/hydrogen').HydrogenRouterContextProvider} HydrogenRouterContextProvider */
-/** @typedef {import('react-router').EntryContext} EntryContext */

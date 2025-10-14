@@ -12,6 +12,20 @@ import { KnowUsSection } from './Home/KnowUsSection';
 import {PromoWhatsAppSection}  from './Home/PromoWhatsappSection';
 import {SpottedStripSection} from './Home/SpottedStripSection';
 import {VideoCarousel} from './Home/VideoCarousel';
+import  BestSellers from '~/assets/images/bestsellers.webp';
+import NewArrivals from '~/assets/images/new_arrivals.gif';
+import Bottoms from '~/assets/images/trousers.webp';
+import Kurtas  from '~/assets/images/kurta.webp';
+import Tops from '~/assets/images/tops.webp';
+import FlaredDresses from '~/assets/images/dresses.webp';
+import Shirts from '~/assets/images/shirts.webp';
+import Men from '~/assets/images//men.webp';
+import ShopByColor from '~/assets/images/shop_by_color.webp';
+import Review1 from '~/assets/images/review1.jpg';
+import Review2 from '~/assets/images/review2.jpg';
+import Review3 from '~/assets/images/review3.jpg';
+import Review4 from '~/assets/images/review4.jpg';
+import Review5 from '~/assets/images/review5.jpg';
 
 const categoriesRow = [
   {
@@ -19,63 +33,63 @@ const categoriesRow = [
     key: 'best-sellers',
     handle: 'best-sellers',
     title: 'Bestsellers',
-    img: 'https://d1pv5xkwefoylp.cloudfront.net/brands/SAADAA/images/bestsellers_1757861989086.webp',
+    img: BestSellers,
   },
   {
     id: 2,
     key: 'new-arrival-all-product',
     handle: 'new-arrival-all-product',
     title: 'New',
-    img: 'https://d1pv5xkwefoylp.cloudfront.net/brands/SAADAA/images/new_arrivals_1757862927977.gif',
+    img: NewArrivals,
   },
   {
     id: 3,
     key: 'shop-bottoms',
     handle: 'shop-bottoms',
     title: 'Bottoms',
-    img: 'https://d1pv5xkwefoylp.cloudfront.net/brands/SAADAA/images/trousers_1757862631967.webp',
+    img: Bottoms,
   },
   {
     id: 4,
     key: 'airy-linen-kurtas',
     handle: 'airy-linen-kurtas',
     title: 'Kurta',
-    img: 'https://d1pv5xkwefoylp.cloudfront.net/brands/SAADAA/images/kurta_1757862669474.webp',
+    img: Kurtas,
   },
   {
     id: 5,
     key: 'shop-all-tops',
     handle: 'shop-all-tops',
     title: 'Tops',
-    img: 'https://d1pv5xkwefoylp.cloudfront.net/brands/SAADAA/images/tops_1757862698617.webp',
+    img: Tops,
   },
   {
     id: 6,
     key: 'airy-linen-flared-dress',
     handle: 'airy-linen-flared-dress',
     title: 'Flared Dress',
-    img: 'https://d1pv5xkwefoylp.cloudfront.net/brands/SAADAA/images/dresses_1757862718781.webp',
+    img: FlaredDresses,
   },
   {
     id: 7,
     key: 'airy-linen-shirts',
     handle: 'airy-linen-shirts',
     title: 'Shirts',
-    img: 'https://d1pv5xkwefoylp.cloudfront.net/brands/SAADAA/images/shirts_1757862780234.webp',
+    img: Shirts,
   },
   {
     id: 8,
     key: 'men',
     handle: 'men',
     title: 'Men',
-    img: 'https://d1pv5xkwefoylp.cloudfront.net/brands/SAADAA/images/men_1757862796208.webp',
+    img: Men,
   },
   {
     id: 9,
     key: 'shop-by-color',
     handle: 'shop-by-color',
     title: 'By Color',
-    img: 'https://d1pv5xkwefoylp.cloudfront.net/brands/SAADAA/images/shop_by_color_1757862829651.webp',
+    img: ShopByColor,
   },
 ];
 
@@ -105,73 +119,73 @@ const statsStripItems = [
 const reviewData = [
   {
     id: 1,
-    img: 'https://images.loox.io/uploads/2025/9/30/sSDpEPkf5.jpg',
+    img: Review1,
     title: 'Akshay R.',
     meta: 'Good',
   },
   {
     id: 2,
-    img: '	https://images.loox.io/uploads/2025/9/30/zTJOPR2-O.jpg',
+    img:  Review2,
     title: 'Preeti J.',
     meta: 'I liked the colour fitting...',
   },
   {
     id: 3,
-    img: 'https://images.loox.io/uploads/2025/9/30/GjXLxUyCc.jpg',
+    img:  Review3,
     title: 'Swati S.',
     meta: 'Very comfortable.',
   },
   {
     id: 4,
-    img: 'https://images.loox.io/uploads/2025/9/29/dwSEF7nal.jpg',
+    img:  Review4,
     title: 'Manisha D.',
     meta: 'Soft touch material.',
   },
   {
     id: 5,
-    img: 'https://images.loox.io/uploads/2025/9/29/dwSEF7nal.jpg',
+    img:  Review5,
     title: 'Akshay R.',
     meta: 'Good',
   },
   {
     id: 6,
-    img: '	https://images.loox.io/uploads/2025/9/29/_6nAbh_Gv.jpg',
+    img: Review1,
     title: 'Preeti J.',
     meta: 'I liked the colour fitting...',
   },
   {
     id: 7,
-    img: '	https://images.loox.io/uploads/2025/9/28/IgeAJ7Ssw.jpg',
+    img: Review2,
     title: 'Swati S.',
     meta: 'Very comfortable.',
   },
   {
     id: 8,
-    img: '	https://images.loox.io/uploads/2025/9/28/SjhHGzBJ7.jpg',
+    img:Review3,
     title: 'Manisha D.',
     meta: 'Soft touch material.',
   },
   {
     id: 9,
-    img: 'https://images.loox.io/uploads/2025/9/30/zTJOPR2-O.jpg',
+    img: Review4,
     title: 'Akshay R.',
     meta: 'Good',
   },
   {
     id: 10,
-    img: 'https://images.loox.io/uploads/2025/9/30/sSDpEPkf5.jpg',
+    img: Review2,
     title: 'Preeti J.',
     meta: 'I liked the colour fitting...',
   },
   {
     id: 11,
-    img: 'https://images.loox.io/uploads/2025/9/29/dwSEF7nal.jpg',
+    img: Review3,
     title: 'Swati S.',
     meta: 'Very comfortable.',
   },
   {
     id: 12,
-    img: '	https://images.loox.io/uploads/2025/9/28/SjhHGzBJ7.jpg',
+    img: Review4,
     title: 'Manisha D.',
     meta: 'Soft touch material.',
   },

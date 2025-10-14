@@ -1,14 +1,12 @@
-import { Suspense } from 'react';
+import { Suspense, useEffect, useState } from 'react';
 import { NavLink, useAsyncValue, Await } from 'react-router';
 import { useOptimisticCart } from '@shopify/hydrogen';
 import { useAside } from '~/components/Aside';
 
-/**
- * @param {HeaderProps}
- */
+/** Header */
 export function Header({ header, cart }) {
   const { shop } = header;
-  
+
   return (
     <header className="header">
       <div className="header-left">
@@ -33,12 +31,9 @@ export function Header({ header, cart }) {
   );
 }
 
-/**
- * Mobile Menu Toggle Button
- */
+/** Mobile Menu Toggle */
 function HeaderMenuMobileToggle() {
   const { open } = useAside();
-  
   return (
     <button
       className="header-menu-mobile-toggle reset"
@@ -52,15 +47,12 @@ function HeaderMenuMobileToggle() {
   );
 }
 
-/**
- * Search Toggle Button
- */
+/** Search Toggle */
 function SearchToggle() {
   const { open } = useAside();
-  
   return (
-    <button 
-      className="reset search-toggle" 
+    <button
+      className="reset search-toggle"
       onClick={() => open('search')}
       aria-label="Open search"
     >
@@ -72,13 +64,9 @@ function SearchToggle() {
   );
 }
 
-/**
- * Cart Badge Component
- * @param {{count: number | null}}
- */
+/** Cart badge button */
 function CartBadge({ count }) {
   const { open } = useAside();
-
   return (
     <button
       className="reset cart-toggle"
@@ -86,20 +74,29 @@ function CartBadge({ count }) {
       aria-label={`Open cart with ${count || 0} items`}
     >
       <svg aria-hidden="true" fill="none" focusable="false" width="22" height="22" viewBox="0 0 22 22" className="icon icon-cart">
-        <path d="M4.75 8.25A.75.75 0 0 0 4 9L3 19.125c0 1.418 1.207 2.625 2.625 2.625h12.75c1.418 0 2.625-1.149 2.625-2.566L20 9a.75.75 0 0 0-.75-.75H4.75Zm2.75 0v-1.5a4.5 4.5 0 0 1 4.5-4.5v0a4.5 4.5 0 0 1 4.5 4.5v1.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+        <path
+          d="M4.75 8.25A.75.75 0 0 0 4 9L3 19.125c0 1.418 1.207 2.625 2.625 2.625h12.75c1.418 0 2.625-1.149 2.625-2.566L20 9a.75.75 0 0 0-.75-.75H4.75Zm2.75 0v-1.5a4.5 4.5 0 0 1 4.5-4.5v0a4.5 4.5 0 0 1 4.5 4.5v1.5"
+          stroke="currentColor"
+          strokeWidth="1.5"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
       </svg>
-      {count !== null && (
-        <span className="cart-badge">{count}</span>
-      )}
+      {count !== null && <span className="cart-badge">{count}</span>}
     </button>
   );
 }
 
-/**
- * Cart Toggle with Suspense
- * @param {Pick<HeaderProps, 'cart'>}
- */
+/** Cart toggle – render Suspense only after hydration */
 function CartToggle({ cart }) {
+  const [hydrated, setHydrated] = useState(false);
+  useEffect(() => setHydrated(true), []);
+
+  if (!hydrated) {
+    // SSR/first paint: avoid Suspense to prevent hydration churn
+    return <CartBadge count={null} />;
+  }
+
   return (
     <Suspense fallback={<CartBadge count={null} />}>
       <Await resolve={cart}>
@@ -109,22 +106,9 @@ function CartToggle({ cart }) {
   );
 }
 
-/**
- * Cart Banner with Optimistic Updates
- */
+/** Resolves cart and uses optimistic updates */
 function CartBanner() {
   const originalCart = useAsyncValue();
   const cart = useOptimisticCart(originalCart);
   return <CartBadge count={cart?.totalQuantity ?? 0} />;
 }
-
-/**
- * @typedef {Object} HeaderProps
- * @property {HeaderQuery} header
- * @property {Promise<CartApiQueryFragment|null>} cart
- * @property {Promise<boolean>} isLoggedIn
- * @property {string} publicStoreDomain
- */
-
-/** @typedef {import('storefrontapi.generated').HeaderQuery} HeaderQuery */
-/** @typedef {import('storefrontapi.generated').CartApiQueryFragment} CartApiQueryFragment */

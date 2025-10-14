@@ -379,7 +379,108 @@ export default function CollectionMain({collection}) {
         </div>
       </div>
 
-      {/* ===== DESKTOP: filters + products ===== */}
+      {/* ===== MOBILE: toolbar (filter | sort | grid) ===== */}
+      <div className="collection-toolbar mobile-toolbar">
+        {/* LEFT: Filter button */}
+        <button
+          className="toolbar-btn filter-btn"
+          onClick={() => setMobileFilterOpen(true)}
+        >
+          <span>Filter</span>
+        </button>
+
+        {/* CENTER: Sort by button */}
+        <button
+          className="toolbar-btn sort-btn"
+          onClick={() => setMobileSortOpen(true)}
+          aria-expanded={mobileSortOpen ? 'true' : 'false'}
+        >
+          <span>Sort by</span>
+          <svg
+            width="12"
+            aria-hidden="true"
+            focusable="false"
+            height="12"
+            viewBox="0 0 12 12"
+            fill="none"
+          >
+            <path
+              d="M2 4L6 8L10 4"
+              stroke="currentColor"
+              strokeWidth="1.5"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+          </svg>
+        </button>
+
+        {/* RIGHT: Grid toggle */}
+        <div className="grid-toggle">
+          <button
+            className={viewMode === 'grid-1' ? 'active' : ''}
+            onClick={() => setViewMode('grid-1')}
+            aria-label="Single column"
+          >
+            <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+              <rect
+                x="2"
+                y="2"
+                width="16"
+                height="16"
+                stroke="currentColor"
+                strokeWidth="2"
+                fill="none"
+              />
+            </svg>
+          </button>
+          <button
+            className={viewMode === 'grid-2' ? 'active' : ''}
+            onClick={() => setViewMode('grid-2')}
+            aria-label="Two columns"
+          >
+            <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+              <rect
+                x="2"
+                y="2"
+                width="7"
+                height="7"
+                stroke="currentColor"
+                strokeWidth="2"
+                fill="none"
+              />
+              <rect
+                x="11"
+                y="2"
+                width="7"
+                height="7"
+                stroke="currentColor"
+                strokeWidth="2"
+                fill="none"
+              />
+              <rect
+                x="2"
+                y="11"
+                width="7"
+                height="7"
+                stroke="currentColor"
+                strokeWidth="2"
+                fill="none"
+              />
+              <rect
+                x="11"
+                y="11"
+                width="7"
+                height="7"
+                stroke="currentColor"
+                strokeWidth="2"
+                fill="none"
+              />
+            </svg>
+          </button>
+        </div>
+      </div>
+
+      {/* ===== DESKTOP: Inline Filters + Products ===== */}
       <div className="collection-content-desktop">
         <div className="collection-filters-inline">
           {filters.map((group) => (

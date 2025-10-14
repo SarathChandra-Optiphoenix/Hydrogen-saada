@@ -1,4 +1,3 @@
-// app/routes/($locale).products.$handle.jsx
 import {useEffect} from 'react';
 import {useLoaderData} from 'react-router';
 import {getSelectedProductOptions} from '@shopify/hydrogen';
@@ -11,10 +10,7 @@ export async function loader({context, params, request}) {
   if (!handle) throw new Response('Missing handle', {status: 400});
 
   const selectedOptions = getSelectedProductOptions(request);
-  const data = await storefront.query(PRODUCT_QUERY, {
-    variables: {handle, selectedOptions},
-  });
-
+  const data = await storefront.query(PRODUCT_QUERY, {variables: {handle, selectedOptions}});
   if (!data?.product?.id) throw new Response('Product not found', {status: 404});
 
   return {product: data.product};
@@ -23,23 +19,16 @@ export async function loader({context, params, request}) {
 export default function Product() {
   const {product} = useLoaderData();
 
-  // ===== GA4: PDP view =====
   useEffect(() => {
     if (!product) return;
-    const v =
-      product.selectedOrFirstAvailableVariant ||
-      product.adjacentVariants?.[0] ||
-      null;
+    const v = product.selectedOrFirstAvailableVariant || product.adjacentVariants?.[0] || null;
 
     const currency =
       v?.price?.currencyCode ||
       product?.priceRange?.minVariantPrice?.currencyCode ||
       'INR';
 
-    const value =
-      Number(v?.price?.amount ??
-        product?.priceRange?.minVariantPrice?.amount ??
-        0);
+    const value = Number(v?.price?.amount ?? product?.priceRange?.minVariantPrice?.amount ?? 0);
 
     gaEvent('view_item', {
       currency,
@@ -48,18 +37,19 @@ export default function Product() {
     });
   }, [product]);
 
-  // Expose an add-to-cart tracker for ProductMain to call AFTER mutation success
   function onAddToCartTracked(variant, quantity = 1) {
     const item = toGAItem(product, variant, quantity);
     gaEvent('add_to_cart', {
-      currency: variant?.price?.currencyCode || 'INR',
-      value: Number(variant?.price?.amount || 0) * quantity,
+      currency: item?.currency || 'INR',
+      value: Number(item?.price || 0) * (item?.quantity || 1),
       items: [item],
     });
   }
 
   return <ProductMain product={product} onAddToCartTracked={onAddToCartTracked} />;
 }
+
+// … keep your PRODUCT_QUERY exactly as you already have it
 
 const PRODUCT_QUERY = `#graphql
  query Product(
@@ -262,6 +252,7 @@ const PRODUCT_QUERY = `#graphql
  amount
  currencyCode
  }
+  
  selectedOptions {
  name
  value

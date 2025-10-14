@@ -1,31 +1,35 @@
 import CommonCarousel from '../ReusableCarousel';
+import AboutUs from '~/assets/images/About-us.avif';
+import OurJourney from '~/assets/images/our-journey.avif';
+import OurStore from '~/assets/images/our-store.avif';
+import WorkWithUs from '~/assets/images/work-with-us.avif';
+import PartnerWithUs from '~/assets/images/partner-with-us.avif'
 
 export function KnowUsSection() {
   const items = [
     {
-      image: 'https://saadaa.in/cdn/shop/files/nj.png?v=1744869154',
+      image: AboutUs,
       cta: 'About Us',
       link: 'https://saadaa.in/pages/about-us',
     },
     {
-      image: 'https://saadaa.in/cdn/shop/files/card_360.jpg?v=1744113181',
+      image: OurJourney,
       cta: 'Our Journey',
       link: 'https://saadaa.in/pages/our-journey',
     },
     {
-      image:
-        'https://saadaa.in/cdn/shop/files/SAADAA-EBO001-AMP-110_1.png?v=1744112072',
+      image: OurStore,
       cta: 'Our Store',
       link: 'https://saadaa.in/pages/our-store',
     },
     {
-      image: 'https://saadaa.in/cdn/shop/files/TI_1.png?v=1744112311',
+      image: WorkWithUs,
       cta: 'Work With Us',
       link: 'https://saadaa.in/pages/work-with-us',
     },
     {
       image:
-        'https://saadaa.in/cdn/shop/files/Desktop_view_banner_1_1.png?v=1744112071',
+        PartnerWithUs,
       cta: 'Partner With Us',
       link: 'https://docs.google.com/forms/d/e/1FAIpQLScoYIX8AzUL-C7cA219JJURZij7pQJ5RJZvaEYGRp9e9pgdww/viewform',
     },

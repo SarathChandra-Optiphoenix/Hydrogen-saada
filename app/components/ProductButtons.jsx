@@ -1,12 +1,13 @@
 import {AddToCartButton} from './AddToCartButton';
 import {useAside} from './Aside';
 import {useRef} from 'react';
-import {gaEvent, toGAItem} from '../utils/ga'; 
+import {gaEvent, toGAItem} from '../utils/ga';
 
 export function ProductButtons({
   variant,
   quantity = 1,
   sellingPlanId = undefined,
+  onAddToCartTracked, // optional callback from PDP route
 }) {
   const {open, type} = useAside();
   const lastAddTimeRef = useRef(0);
@@ -16,23 +17,25 @@ export function ProductButtons({
   const canAdd = Boolean(variantId) && available && quantity > 0;
 
   const handleAddSuccess = () => {
-    const now = Date.now();
-
-    // === GA4 add_to_cart ===
+    // fire GA either via parent handler or local
     try {
-      const item = toGAItem(variant?.product || {}, variant, quantity);
-      if (item) {
-        gaEvent('add_to_cart', {
-          currency: item.currency || 'INR',
-          value: item.price * item.quantity,
-          items: [item],
-        });
+      if (typeof onAddToCartTracked === 'function') {
+        onAddToCartTracked(variant, quantity);
+      } else {
+        const item = toGAItem(variant?.product || {}, variant, quantity);
+        if (item) {
+          gaEvent('add_to_cart', {
+            currency: item.currency || 'INR',
+            value: item.price * item.quantity,
+            items: [item],
+          });
+        }
       }
-    } catch (err) {
-      console.warn('GA add_to_cart event failed:', err);
+    } catch (e) {
+      console.warn('GA add_to_cart failed', e);
     }
 
-    // === open cart drawer ===
+    const now = Date.now();
     if (type !== 'cart' && now - lastAddTimeRef.current > 500) {
       lastAddTimeRef.current = now;
       setTimeout(() => open('cart'), 150);
@@ -50,7 +53,7 @@ export function ProductButtons({
             ...(sellingPlanId ? {sellingPlanId} : {}),
           },
         ]}
-        onSuccess={handleAddSuccess} // ✅ triggers GA + opens cart
+        onSuccess={handleAddSuccess}
         className="btn btn-primary product-atc-btn"
       >
         <span className="bag-icon">

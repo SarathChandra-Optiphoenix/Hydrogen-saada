@@ -1,13 +1,9 @@
-// CartAside.jsx
 import {Suspense, useEffect, useMemo, useRef} from 'react';
 import {Await} from 'react-router';
 import {Aside, useAside} from '~/components/Aside';
 import {CartMain} from '~/components/CartMain';
-import {gaEvent, toGAItem} from '~/utils/ga'; // 👈 add this
+import {gaEvent, toGAItemsFromCartLines} from '~/utils/ga';
 
-/**
- * Cart Aside Component (Slides from RIGHT)
- */
 export function CartAside({cart}) {
   const {type: activeType} = useAside();
   const expanded = activeType === 'cart';
@@ -18,7 +14,6 @@ export function CartAside({cart}) {
         <Await resolve={cart}>
           {(resolvedCart) => (
             <>
-              {/* GA view_cart effect lives here */}
               <CartGAEffect expanded={expanded} cart={resolvedCart} />
               <CartMain cart={resolvedCart} layout="aside" />
             </>
@@ -29,42 +24,34 @@ export function CartAside({cart}) {
   );
 }
 
-/* === GA EFFECT: fire view_cart when drawer opens with items === */
 function CartGAEffect({expanded, cart}) {
   const firedRef = useRef(false);
 
-  // build items payload once per cart snapshot
-  const items = useMemo(() => {
-    const lines = cart?.lines?.nodes || [];
-    return lines.map((l) =>
-      toGAItem(
-        l?.merchandise?.product,
-        {
-          ...l?.merchandise,
-          price: l?.merchandise?.price, // Hydrogen price object
-          title: l?.merchandise?.title,
-        },
-        l?.quantity || 1,
-      ),
-    ).filter(Boolean);
-  }, [cart]);
-
+  const items = useMemo(
+    () => toGAItemsFromCartLines(cart?.lines?.nodes || []),
+    [cart],
+  );
   const value = useMemo(
-    () => items.reduce((sum, i) => sum + Number(i.price || 0) * Number(i.quantity || 1), 0),
+    () =>
+      items.reduce(
+        (sum, i) => sum + Number(i.price || 0) * Number(i.quantity || 1),
+        0,
+      ),
     [items],
   );
 
   useEffect(() => {
     const hasItems = items.length > 0;
     if (!expanded || !hasItems) {
-      // reset the gate when closed or empty
       firedRef.current = false;
       return;
     }
-    // fire once per open state (prevents double fire on minor state churn)
     if (!firedRef.current) {
       gaEvent('view_cart', {
-        currency: items[0]?.currency || cart?.cost?.subtotalAmount?.currencyCode || 'INR',
+        currency:
+          items[0]?.currency ||
+          cart?.cost?.subtotalAmount?.currencyCode ||
+          'INR',
         value,
         items,
       });
@@ -75,7 +62,6 @@ function CartGAEffect({expanded, cart}) {
   return null;
 }
 
-/* Centered Loader */
 function CartLoader() {
   return (
     <div className="cart-loader-overlay">
@@ -99,10 +85,8 @@ function CartLoader() {
   );
 }
 
-/* Heading component rendered INSIDE the Aside <header> */
 function CartHeading({cart}) {
   const {close} = useAside();
-
   const handleCloseClick = (e) => {
     e.preventDefault();
     e.stopPropagation();
@@ -114,7 +98,6 @@ function CartHeading({cart}) {
       <Await resolve={cart}>
         {(resolvedCart) => {
           const count = resolvedCart?.totalQuantity ?? 0;
-
           return (
             <>
               <span className="cart-heading">

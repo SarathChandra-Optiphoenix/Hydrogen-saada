@@ -1,10 +1,18 @@
+
+import Partner1 from '~/assets/images/CMAI-logo.avif';
+import Partner2 from '~/assets/images/partener-logo.avif';
+import Partner3 from '~/assets/images/CNBC-logo.avif';
+import Partner4 from '~/assets/images/Inc_logo.avif';
+import Partner5 from '~/assets/images/Apparel-logo.webp';
+import Partner6 from '~/assets/images/Indianstartuptimes-logo.webp';
+
 const logos = [
-  'https://saadaa.in/cdn/shop/files/5_5e283120-e1aa-4957-8ab6-fb69e4d58490.png?v=1744436770&width=180',
-  'https://saadaa.in/cdn/shop/files/4_41d58c42-ae17-4a83-a599-002ab84a78b2.png?v=1744436770&width=180',
-  'https://saadaa.in/cdn/shop/files/6_81a9d37c-3091-4c0c-aad8-7ba4c5a0ddeb.png?v=1744436769&width=180',
-  'https://saadaa.in/cdn/shop/files/3_85ab524e-bb5d-4fbd-a29b-263fcfe7bdc0.png?v=1744436770&width=180',
-  'https://saadaa.in/cdn/shop/files/2_b7e2acee-da5c-4843-9661-c92ce652dfe7.png?v=1744436770&width=180',
-  'https://saadaa.in/cdn/shop/files/1_34fd8e13-b431-47e5-8db0-f0805145c5cf.png?v=1744436770&width=180'
+  Partner1,
+  Partner2,
+  Partner3,
+  Partner4,
+  Partner5,
+  Partner6
 ];
 
 export function PartnersStrip() {
