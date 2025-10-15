@@ -10,38 +10,20 @@ export default async function handleRequest(
   reactRouterContext,
   context,
 ) {
-  const isDev = new URL(request.url).hostname === 'localhost';
+  const hostname = new URL(request.url).hostname;
+  const isDev = hostname === 'localhost';
 
-  let nonce, header, NonceProvider = ({children}) => <>{children}</>;
-
+  // We still use Hydrogen’s nonce + provider, but we’ll build our own CSP string.
+  let nonce, NonceProvider = ({children}) => <>{children}</>;
   if (!isDev) {
-    const csp = createContentSecurityPolicy({
+    const {nonce: n, NonceProvider: NP} = createContentSecurityPolicy({
       shop: {
         checkoutDomain: context.env.PUBLIC_CHECKOUT_DOMAIN,
         storeDomain: context.env.PUBLIC_STORE_DOMAIN,
       },
-      // add GA + Shopify script and GA collect endpoints (see §2)
-      connectSrc: [
-        'https://www.google-analytics.com',
-        'https://analytics.google.com',
-        'https://region1.google-analytics.com',
-        'https://cdn.shopify.com',
-      ],
-      scriptSrcElem: [
-        'https://www.googletagmanager.com',
-        'https://www.google-analytics.com',
-        'https://cdn.shopify.com',
-      ],
-      imgSrc: [
-        'data:',
-        'https://cdn.shopify.com',
-        'https://images.loox.io',
-        'https://d1pv5xkwefoylp.cloudfront.net',
-      ],
     });
-    nonce = csp.nonce;
-    header = csp.header;
-    NonceProvider = csp.NonceProvider;
+    nonce = n;
+    NonceProvider = NP;
   }
 
   const body = await renderToReadableStream(
@@ -63,7 +45,36 @@ export default async function handleRequest(
   }
 
   responseHeaders.set('Content-Type', 'text/html');
-  if (header) responseHeaders.set('Content-Security-Policy', header); // prod only
+
+  // Build ONE clean CSP for preview/prod (Incognito-friendly). No duplicates.
+  if (!isDev) {
+    const cspDirectives = [
+      // Safe defaults
+      `default-src 'self' https://cdn.shopify.com https://shopify.com`,
+      `object-src 'none'`,
+      `base-uri 'self'`,
+      `frame-ancestors 'self'`,
+
+      // Scripts: allow nonce’d inline + GA + Shopify CDN
+      `script-src 'self' 'nonce-${nonce}' https://www.googletagmanager.com https://www.google-analytics.com https://cdn.shopify.com`,
+
+      // Some browsers still consult script-src-elem separately
+      `script-src-elem 'self' 'nonce-${nonce}' https://www.googletagmanager.com https://www.google-analytics.com https://cdn.shopify.com`,
+
+      // Styles: external + inline (Incognito tends to require this)
+      `style-src 'self' 'unsafe-inline' https://cdn.shopify.com`,
+
+      // Fonts
+      `font-src 'self' data: https://cdn.shopify.com`,
+
+      // Images (Shopify CDN, CloudFront, Loox, data URLs, blobs)
+      `img-src 'self' data: blob: https://cdn.shopify.com https://*.cloudfront.net https://d1pv5xkwefoylp.cloudfront.net https://images.loox.io`,
+
+      // XHR/beacons for Shopify + GA (include analytics.google.com + region1)
+      `connect-src 'self' https://cdn.shopify.com https://monorail-edge.shopifysvc.com https://www.google-analytics.com https://analytics.google.com https://region1.google-analytics.com`,
+    ];
+    responseHeaders.set('Content-Security-Policy', cspDirectives.join('; '));
+  }
 
   return new Response(body, {headers: responseHeaders, status: statusCode});
 }

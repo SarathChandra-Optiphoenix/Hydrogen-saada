@@ -1,3 +1,4 @@
+// app/root.jsx
 import {Analytics, getShopAnalytics, useNonce} from '@shopify/hydrogen';
 import {useEffect} from 'react';
 import {useLocation} from 'react-router';
@@ -87,7 +88,7 @@ function loadDeferredData({context}) {
 export function Layout({children}) {
   const nonce = useNonce();
 
-  // only inject GA on non-local
+  // Only inject GA scripts when NOT on localhost (Hydrogen dev) and GA_ID is set
   const isLocal =
     typeof window !== 'undefined' && window.location.hostname === 'localhost';
   const GA_ENABLED = !!GA_ID && !isLocal;
@@ -97,6 +98,11 @@ export function Layout({children}) {
       <head>
         <meta charSet="utf-8" />
         <meta name="viewport" content="width=device-width,initial-scale=1" />
+        {/* Optional: expose nonce to client (useful if you ever need it there) */}
+        {!isLocal && nonce ? (
+          <meta name="csp-nonce" content={nonce} />
+        ) : null}
+
         <link rel="stylesheet" href={tailwindCss} />
         <link rel="stylesheet" href={resetStyles} />
         <link rel="stylesheet" href={appStyles} />
@@ -104,7 +110,9 @@ export function Layout({children}) {
         <link rel="stylesheet" href={productStyles} />
         <Meta />
         <Links />
-        {GA_ID ? (
+
+        {/* ✅ Use GA_ENABLED here, not GA_ID */}
+        {GA_ENABLED ? (
           <>
             <script
               async
@@ -115,14 +123,15 @@ export function Layout({children}) {
               nonce={nonce}
               dangerouslySetInnerHTML={{
                 __html: `
-          window.dataLayer = window.dataLayer || [];
-          function gtag(){dataLayer.push(arguments);}
-          gtag('js', new Date());
-          gtag('config', '${GA_ID}', {
-            send_page_view: false,
-            linker: { domains: ['saadaa.in','saadaa.myshopify.com','your-oxygen-domain.shop'] }
-          });
-        `,
+                  window.dataLayer = window.dataLayer || [];
+                  function gtag(){dataLayer.push(arguments);}
+                  gtag('js', new Date());
+                  gtag('config', '${GA_ID}', {
+                    send_page_view: false,
+                    // Keep only domains you actually use; remove placeholder
+                    linker: { domains: ['saadaa.in','saadaa.myshopify.com'] }
+                  });
+                `,
               }}
             />
           </>
@@ -141,6 +150,7 @@ export default function App() {
   const data = useRouteLoaderData('root');
   const location = useLocation();
 
+  // Defer GA page_view to avoid hydration churn
   useEffect(() => {
     if (typeof window === 'undefined' || !window.gtag || !GA_ID) return;
     const fire = () => {
@@ -150,8 +160,7 @@ export default function App() {
         page_title: document.title,
       });
     };
-    if ('requestIdleCallback' in window)
-      requestIdleCallback(fire, {timeout: 1000});
+    if ('requestIdleCallback' in window) requestIdleCallback(fire, {timeout: 1000});
     else setTimeout(fire, 0);
   }, [location]);
 
