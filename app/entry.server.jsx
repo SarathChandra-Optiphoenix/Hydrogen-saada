@@ -59,40 +59,29 @@ export default async function handleRequest(
       `object-src 'none'`,
       `base-uri 'self'`,
       `frame-ancestors 'self'`,
-    
-      // Scripts: GA + Shopify + Convert CDN
+  
+      // Scripts: GA + Shopify + Convert
       `script-src 'self' 'nonce-${nonce}' https://www.googletagmanager.com https://www.google-analytics.com https://cdn.shopify.com https://cdn-4.convertexperiments.com`,
-    
-      // Some browsers still split this
+  
+      // Explicitly repeat for some browsers
       `script-src-elem 'self' 'nonce-${nonce}' https://www.googletagmanager.com https://www.google-analytics.com https://cdn.shopify.com https://cdn-4.convertexperiments.com`,
-    
+  
       // Styles
       `style-src 'self' 'unsafe-inline' https://cdn.shopify.com`,
-    
+  
       // Fonts
       `font-src 'self' data: https://cdn.shopify.com`,
-    
-      // Images (Shopify/CF/Loox + GA/Ads pixels)
+  
+      // Images (Shopify/CF/Loox + GA/Ads)
       `img-src 'self' data: blob: https://cdn.shopify.com https://*.cloudfront.net https://d1pv5xkwefoylp.cloudfront.net https://images.loox.io https://www.google.com https://www.googleadservices.com https://stats.g.doubleclick.net`,
-    
-      // 🚀 THIS IS THE FIX — allow all Convert network calls
-      `connect-src 'self'
-        https://cdn.shopify.com
-        https://monorail-edge.shopifysvc.com
-        https://www.google-analytics.com
-        https://analytics.google.com
-        https://region1.google-analytics.com
-        https://stats.g.doubleclick.net
-        https://cdn-4.convertexperiments.com
-        https://api-v1.convertexperiments.com
-        https://metrics.convertexperiments.com
-        https://signals.convertexperiments.com
-        https://logs.convertexperiments.com`,
-    
-      // Optional: Convert visual editor/iframes
+  
+      // ✅ FIXED connect-src — allow all Convert calls
+      `connect-src 'self' https://cdn.shopify.com https://monorail-edge.shopifysvc.com https://www.google-analytics.com https://analytics.google.com https://region1.google-analytics.com https://stats.g.doubleclick.net https://cdn-4.convertexperiments.com https://api-v1.convertexperiments.com https://metrics.convertexperiments.com https://signals.convertexperiments.com https://logs.convertexperiments.com`,
+  
+      // Optional Convert visual editor
       `frame-src 'self' https://*.convertexperiments.com`,
     ];
-    
+  
     responseHeaders.set('Content-Security-Policy', cspDirectives.join('; '));
   }
 
