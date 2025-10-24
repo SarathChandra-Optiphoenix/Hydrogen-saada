@@ -1,5 +1,5 @@
 // app/root.jsx
-import {Analytics, getShopAnalytics, useNonce} from '@shopify/hydrogen';
+import {Analytics, getShopAnalytics, useNonce, Script} from '@shopify/hydrogen';
 import {useEffect} from 'react';
 import {useLocation} from 'react-router';
 import {
@@ -12,17 +12,26 @@ import {
   ScrollRestoration,
   useRouteLoaderData,
 } from 'react-router';
+
 import favicon from '~/assets/saadafavicon.ico';
 import {FOOTER_QUERY, HEADER_QUERY} from '~/lib/fragments';
+
+// styles
 import resetStyles from '~/styles/reset.css?url';
 import appStyles from '~/styles/app.css?url';
 import homeStyles from '~/styles/Home.css?url';
 import productStyles from '~/styles/product.css?url';
 import tailwindCss from './styles/tailwind.css?url';
+
+// layout
 import {PageLayout} from './components/PageLayout';
 
+// ---- GA CONFIG ----
 const GA_ID = import.meta.env.VITE_GA_MEASUREMENT_ID || 'G-ZJ75SWX3K7';
+// IMPORTANT: compute once, same on SSR/CSR (no window checks)
+const GA_ENABLED = Boolean(GA_ID);
 
+// ---- Remix/Hydrogen hooks ----
 export const shouldRevalidate = ({formMethod, currentUrl, nextUrl}) => {
   if (formMethod && formMethod !== 'GET') return true;
   if (currentUrl.toString() === nextUrl.toString()) return true;
@@ -33,6 +42,12 @@ export function links() {
   return [
     {rel: 'preconnect', href: 'https://cdn.shopify.com'},
     {rel: 'preconnect', href: 'https://shop.app'},
+    {
+      rel: 'preconnect',
+      href: 'https://cdn-4.convertexperiments.com',
+      crossOrigin: 'anonymous',
+    },
+    {rel: 'dns-prefetch', href: 'https://cdn-4.convertexperiments.com'},
     {rel: 'icon', type: 'image/x-icon', href: favicon},
   ];
 }
@@ -51,7 +66,7 @@ export async function loader(args) {
       publicStorefrontId: env.PUBLIC_STOREFRONT_ID,
     }),
     consent: {
-      checkoutDomain: env.PUBLIC_CHECKOUT_DOMAIN,
+      checkoutDomain: env.PUBLIC_CHECKOUT_DOMAIN, // set to checkout.shopify.com in Oxygen
       storefrontAccessToken: env.PUBLIC_STOREFRONT_API_TOKEN,
       withPrivacyBanner: false,
       country: args.context.storefront.i18n.country,
@@ -86,41 +101,34 @@ function loadDeferredData({context}) {
 }
 
 export function Layout({children}) {
-  const nonce = useNonce();
-
-  // Only inject GA scripts when NOT on localhost (Hydrogen dev) and GA_ID is set
-  const isLocal =
-    typeof window !== 'undefined' && window.location.hostname === 'localhost';
-  const GA_ENABLED = !!GA_ID && !isLocal;
+  const nonce = useNonce(); // Hydrogen provides this (works in dev & prod)
 
   return (
     <html lang="en">
       <head>
         <meta charSet="utf-8" />
         <meta name="viewport" content="width=device-width,initial-scale=1" />
-        {/* Optional: expose nonce to client (useful if you ever need it there) */}
-        {!isLocal && nonce ? (
-          <meta name="csp-nonce" content={nonce} />
-        ) : null}
 
+        {/* styles */}
         <link rel="stylesheet" href={tailwindCss} />
         <link rel="stylesheet" href={resetStyles} />
         <link rel="stylesheet" href={appStyles} />
         <link rel="stylesheet" href={homeStyles} />
         <link rel="stylesheet" href={productStyles} />
+
         <Meta />
         <Links />
 
-        {/* ✅ Use GA_ENABLED here, not GA_ID */}
-        {GA_ENABLED ? (
+        {/* ---------- GA (SSR/CSR identical) ---------- */}
+        {GA_ENABLED && (
           <>
-            <script
+            <Script
+              id="ga-src"
               async
-              nonce={nonce}
               src={`https://www.googletagmanager.com/gtag/js?id=${GA_ID}`}
             />
-            <script
-              nonce={nonce}
+            <Script
+              id="ga-init"
               dangerouslySetInnerHTML={{
                 __html: `
                   window.dataLayer = window.dataLayer || [];
@@ -128,17 +136,45 @@ export function Layout({children}) {
                   gtag('js', new Date());
                   gtag('config', '${GA_ID}', {
                     send_page_view: false,
-                    // Keep only domains you actually use; remove placeholder
                     linker: { domains: ['saadaa.in','saadaa.myshopify.com'] }
                   });
                 `,
               }}
             />
           </>
-        ) : null}
+        )}
+
+        {/* ---------- Convert (SSR/CSR identical) ---------- */}
+        <Script
+          id="convert-vars"
+          // if SSR ever emits trimmed whitespace, this silences hydration nitpicks
+          suppressHydrationWarning
+          dangerouslySetInnerHTML={{
+            __html: `
+              var _conv_page_type = "";
+              var _conv_category_id = "";
+              var _conv_category_name = "";
+              var _conv_product_sku = "";
+              var _conv_product_name = "";
+              var _conv_product_price = "";
+              var _conv_customer_id = "";
+              var _conv_custom_v1 = "";
+              var _conv_custom_v2 = "";
+              var _conv_custom_v3 = "";
+              var _conv_custom_v4 = "";
+            `,
+          }}
+        />
+        <Script
+          id="convert-src"
+          defer
+          src="https://cdn-4.convertexperiments.com/v1/js/1002628-10025677.js?environment=production"
+        />
       </head>
+
       <body>
         {children}
+        {/* keep nonce pass-through; harmless in dev, required in prod */}
         <ScrollRestoration nonce={nonce} />
         <Scripts nonce={nonce} />
       </body>
@@ -150,7 +186,7 @@ export default function App() {
   const data = useRouteLoaderData('root');
   const location = useLocation();
 
-  // Defer GA page_view to avoid hydration churn
+  // Defer GA page_view to idle; runs both in dev & prod identically
   useEffect(() => {
     if (typeof window === 'undefined' || !window.gtag || !GA_ID) return;
     const fire = () => {
@@ -160,18 +196,17 @@ export default function App() {
         page_title: document.title,
       });
     };
-    if ('requestIdleCallback' in window) requestIdleCallback(fire, {timeout: 1000});
-    else setTimeout(fire, 0);
+    if ('requestIdleCallback' in window) {
+      requestIdleCallback(fire, {timeout: 1000});
+    } else {
+      setTimeout(fire, 0);
+    }
   }, [location]);
 
   if (!data) return <Outlet />;
 
   return (
-    <Analytics.Provider
-      cart={data.cart}
-      shop={data.shop}
-      consent={data.consent}
-    >
+    <Analytics.Provider cart={data.cart} shop={data.shop} consent={data.consent}>
       <PageLayout {...data}>
         <Outlet />
       </PageLayout>
@@ -189,7 +224,6 @@ export function ErrorBoundary() {
   } else if (error instanceof Error) {
     message = error.message;
   }
-
   return (
     <div className="route-error">
       <h1>Oops</h1>
