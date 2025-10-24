@@ -167,7 +167,6 @@ export function Layout({children}) {
         />
         <Script
           id="convert-src"
-          defer
           src="https://cdn-4.convertexperiments.com/v1/js/1002628-10025677.js?environment=production"
         />
       </head>
